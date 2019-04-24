@@ -14,19 +14,19 @@
 //       reports and manuals, must cite at least one of the following works:
 //
 //       OpenFace 2.0: Facial Behavior Analysis Toolkit
-//       Tadas Baltrušaitis, Amir Zadeh, Yao Chong Lim, and Louis-Philippe Morency
+//       Tadas Baltruï¿½aitis, Amir Zadeh, Yao Chong Lim, and Louis-Philippe Morency
 //       in IEEE International Conference on Automatic Face and Gesture Recognition, 2018  
 //
 //       Convolutional experts constrained local model for facial landmark detection.
-//       A. Zadeh, T. Baltrušaitis, and Louis-Philippe Morency,
+//       A. Zadeh, T. Baltruï¿½aitis, and Louis-Philippe Morency,
 //       in Computer Vision and Pattern Recognition Workshops, 2017.    
 //
 //       Rendering of Eyes for Eye-Shape Registration and Gaze Estimation
-//       Erroll Wood, Tadas Baltrušaitis, Xucong Zhang, Yusuke Sugano, Peter Robinson, and Andreas Bulling 
+//       Erroll Wood, Tadas Baltruï¿½aitis, Xucong Zhang, Yusuke Sugano, Peter Robinson, and Andreas Bulling 
 //       in IEEE International. Conference on Computer Vision (ICCV),  2015 
 //
 //       Cross-dataset learning and person-specific normalisation for automatic Action Unit detection
-//       Tadas Baltrušaitis, Marwa Mahmoud, and Peter Robinson 
+//       Tadas Baltruï¿½aitis, Marwa Mahmoud, and Peter Robinson 
 //       in Facial Expression Recognition and Analysis Challenge, 
 //       IEEE International Conference on Automatic Face and Gesture Recognition, 2015 
 //
@@ -86,11 +86,16 @@ cv::Point3f GazeAnalysis::GetPupilPosition(cv::Mat_<float> eyeLdmks3d){
 	return p;
 }
 
-void GazeAnalysis::EstimateGaze(const LandmarkDetector::CLNF& clnf_model, cv::Point3f& gaze_absolute, float fx, float fy, float cx, float cy, bool left_eye)
+void GazeAnalysis::EstimateGaze(const LandmarkDetector::CLNF& clnf_model, cv::Point3f& gaze_absolute, cv::Point3f& eyeballCentre,
+								float fx, float fy, float cx, float cy, bool left_eye)
 {
 	cv::Vec6f headPose = LandmarkDetector::GetPose(clnf_model, fx, fy, cx, cy);
 	cv::Vec3f eulerAngles(headPose(3), headPose(4), headPose(5));
 	cv::Matx33f rotMat = Utilities::Euler2RotationMatrix(eulerAngles);
+
+	// std::cout << "head pose = " << headPose << std::endl;
+	// std::cout << "euler angles = " << eulerAngles << std::endl;
+	// std::cout << "rot Mat = " << rotMat << std::endl;
 
 	int part = -1;
 	for (size_t i = 0; i < clnf_model.hierarchical_models.size(); ++i)
@@ -117,6 +122,8 @@ void GazeAnalysis::EstimateGaze(const LandmarkDetector::CLNF& clnf_model, cv::Po
 	cv::Point3f pupil = GetPupilPosition(eyeLdmks3d);
 	cv::Point3f rayDir = pupil / norm(pupil);
 
+	// std::cout << "rayDir = " << rayDir << std::endl;
+
 	cv::Mat faceLdmks3d = clnf_model.GetShape(fx, fy, cx, cy);
 	faceLdmks3d = faceLdmks3d.t();
 
@@ -130,11 +137,13 @@ void GazeAnalysis::EstimateGaze(const LandmarkDetector::CLNF& clnf_model, cv::Po
 
 	cv::Mat eyeballCentreMat = (faceLdmks3d.row(36+eyeIdx*6) + faceLdmks3d.row(39+eyeIdx*6))/2.0f + (cv::Mat(rotMat)*offset).t();
 
-	cv::Point3f eyeballCentre = cv::Point3f(eyeballCentreMat);
+	eyeballCentre = cv::Point3f(eyeballCentreMat);
+	// std::cout << "eyeballCentre = " << eyeballCentre << std::endl;
 
 	cv::Point3f gazeVecAxis = RaySphereIntersect(cv::Point3f(0,0,0), rayDir, eyeballCentre, 12) - eyeballCentre;
-	
+
 	gaze_absolute = gazeVecAxis / norm(gazeVecAxis);
+	// std::cout << "gaze_absolute = " << gaze_absolute << std::endl;
 }
 
 cv::Vec2f GazeAnalysis::GetGazeAngle(cv::Point3f& gaze_vector_1, cv::Point3f& gaze_vector_2)
